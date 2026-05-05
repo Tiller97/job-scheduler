@@ -4,7 +4,8 @@ Build a few jobs, register them, run them, print a summary.
 """
 
 
-from models import EmailJob, DataProcessingJob, PriorityJob
+from models import PriorityJob
+from factory import JobFactory
 
 from task_manager import TaskManager
 
@@ -12,20 +13,24 @@ from executor import Executor
 
 
 def build_jobs():
-    """建立範例 jobs(包含不同優先順序)"""
-    jobs = [
-        EmailJob(1, "user@example.com"),
-        DataProcessingJob(2, "dataset_A"),
-        PriorityJob(3, "Send urgent system alert", priority=1),    # 最高優先!
-        PriorityJob(4, "Backup database", priority=8),              # 低優先
-        PriorityJob(5, "Send daily newsletter", priority=5),        # 普通
+    """建立範例 jobs(模擬從外部 config 讀取資料)"""
+    # 模擬從 API 或資料庫讀進來的 job 設定
+    job_configs = [
+        {"type": "email",    "job_id": 1, "recipient": "user@example.com"},
+        {"type": "data",     "job_id": 2, "dataset": "dataset_A"},
+        {"type": "priority", "job_id": 3, "description": "Send urgent system alert", "priority": 1},
+        {"type": "priority", "job_id": 4, "description": "Backup database",           "priority": 8},
+        {"type": "priority", "job_id": 5, "description": "Send daily newsletter",     "priority": 5},
     ]
-    
-    # 把 PriorityJob 按 priority 排序,優先級高的(數字小)先處理
+
+    # 用 Factory 建立 jobs - 我們不用 import 任何具體的 Job class
+    jobs = [JobFactory.create(cfg.pop("type"), **cfg) for cfg in job_configs]
+
+    # 把 PriorityJob 排序到前面
     priority_jobs = [j for j in jobs if isinstance(j, PriorityJob)]
     other_jobs = [j for j in jobs if not isinstance(j, PriorityJob)]
-    priority_jobs.sort()   # 用我們定義的 __lt__ 來排序
-    
+    priority_jobs.sort()
+
     return priority_jobs + other_jobs
 
 
