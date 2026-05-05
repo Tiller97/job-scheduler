@@ -65,3 +65,16 @@ if __name__ == "__main__":
         print(f"\n-- Job {job.job_id} ({job.description}) --")
         for log in job.get_logs():
             print(f"  {log}")
+            
+    print("\n=== TIMING SUMMARY ===")
+    durations = [(j.job_id, j.description, j.get_duration()) for j in jobs]
+    durations.sort(key=lambda x: x[2], reverse=True)  # 從慢到快排序
+    for job_id, desc, duration in durations:
+        bar = "█" * int(duration * 10)  # 視覺化長條
+        print(f"  Job {job_id}: {duration:.3f}s  {bar} ({desc})")
+    
+    total = sum(d for _, _, d in durations)
+    avg = total / len(durations) if durations else 0
+    print(f"\n  Total CPU time:    {total:.3f}s")
+    print(f"  Average duration:  {avg:.3f}s")
+    print(f"  Slowest job:       Job {durations[0][0]} ({durations[0][2]:.3f}s)")

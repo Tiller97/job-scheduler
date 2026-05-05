@@ -19,7 +19,7 @@ class JobFactory:
         "email": EmailJob,
         "data": DataProcessingJob,
         "priority": PriorityJob,
-        "backup": BackupJob,    
+        
     }
 
     @classmethod

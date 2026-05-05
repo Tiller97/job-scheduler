@@ -1,6 +1,6 @@
 """
 models.py
-Defines the Job hierarchy with encapsulated logs.
+Defines the Job hierarchy with encapsulated logs and lifecycle timing.
 """
 
 from datetime import datetime
@@ -11,12 +11,38 @@ class Job:
     def __init__(self, job_id: int, description: str) -> None:
         self.job_id = job_id
         self.description = description
-        # Private attributes (single underscore = "please don't touch directly")
+        # Encapsulated state
         self._status = "pending"
         self._logs = []
+        # Lifecycle timestamps (Activity 5)
+        self._start_time = None
+        self._end_time = None
         self._add_log(f"Job created: {description}")
 
-    # ----- Public methods to access private data (Encapsulation) -----
+    # ----- Lifecycle methods (Activity 5) -----
+    def start(self) -> None:
+        """Called by the executor right before execute()."""
+        self._start_time = datetime.now()
+        self._add_log(f"Job started")
+
+    def end(self) -> None:
+        """Called by the executor right after execute() (success or failure)."""
+        self._end_time = datetime.now()
+        self._add_log(f"Job ended (duration: {self.get_duration():.3f}s)")
+
+    def get_duration(self) -> float:
+        """Return execution duration in seconds. Returns 0 if not finished."""
+        if self._start_time is None or self._end_time is None:
+            return 0.0
+        return (self._end_time - self._start_time).total_seconds()
+
+    def get_start_time(self):
+        return self._start_time
+
+    def get_end_time(self):
+        return self._end_time
+
+    # ----- Encapsulated status & logs -----
     def get_status(self) -> str:
         return self._status
 
@@ -26,18 +52,14 @@ class Job:
         self._add_log(f"Status changed: {old} -> {new_status}")
 
     def get_logs(self) -> list:
-        # Return a copy so external code can't mutate internal list
         return list(self._logs)
 
     def _add_log(self, message: str) -> None:
-        """Internal helper to append a timestamped log entry."""
         ts = datetime.now().strftime("%H:%M:%S")
         self._logs.append(f"[{ts}] {message}")
 
-    # ----- Backward compatibility -----
     @property
     def status(self) -> str:
-        """Allow `job.status` for read-only access (compatibility)."""
         return self._status
 
     def execute(self) -> None:
@@ -51,7 +73,6 @@ class Job:
 
 
 class EmailJob(Job):
-    """Child class: sends an email."""
     def __init__(self, job_id: int, recipient: str) -> None:
         super().__init__(job_id, f"Send email to {recipient}")
         self.recipient = recipient
@@ -62,7 +83,6 @@ class EmailJob(Job):
 
 
 class DataProcessingJob(Job):
-    """Child class: processes a dataset."""
     def __init__(self, job_id: int, dataset: str) -> None:
         super().__init__(job_id, f"Process dataset {dataset}")
         self.dataset = dataset
@@ -73,7 +93,6 @@ class DataProcessingJob(Job):
 
 
 class PriorityJob(Job):
-    """Child class: a job with priority. Smaller number = higher priority."""
     def __init__(self, job_id: int, description: str, priority: int = 5) -> None:
         super().__init__(job_id, description)
         self.priority = priority
