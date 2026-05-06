@@ -1,29 +1,36 @@
 """
 models.py
-Defines the Job hierarchy with encapsulated logs and lifecycle timing.
+Defines the Job class hierarchy with encapsulated logs and lifecycle timing.
+
+OOP concepts demonstrated:
+- Inheritance: Job (base) -> EmailJob, DataProcessingJob, PriorityJob
+- Polymorphism: each subclass implements its own execute()
+- Encapsulation: _status, _logs, _start_time, _end_time are private
+- Lifecycle methods: start(), end(), get_duration()
 """
 
 from datetime import datetime
 
 
 class Job:
-    """Parent/base class shared by all job types."""
+    """Base class shared by all job types."""
+
     def __init__(self, job_id: int, description: str) -> None:
         self.job_id = job_id
         self.description = description
         # Encapsulated state
         self._status = "pending"
         self._logs = []
-        # Lifecycle timestamps (Activity 5)
+        # Lifecycle timestamps
         self._start_time = None
         self._end_time = None
         self._add_log(f"Job created: {description}")
 
-    # ----- Lifecycle methods (Activity 5) -----
+    # ----- Lifecycle methods -----
     def start(self) -> None:
         """Called by the executor right before execute()."""
         self._start_time = datetime.now()
-        self._add_log(f"Job started")
+        self._add_log("Job started")
 
     def end(self) -> None:
         """Called by the executor right after execute() (success or failure)."""
@@ -52,6 +59,7 @@ class Job:
         self._add_log(f"Status changed: {old} -> {new_status}")
 
     def get_logs(self) -> list:
+        # Return a copy so external code cannot mutate the internal list
         return list(self._logs)
 
     def _add_log(self, message: str) -> None:
@@ -60,9 +68,11 @@ class Job:
 
     @property
     def status(self) -> str:
+        """Read-only property for backward compatibility with `job.status`."""
         return self._status
 
     def execute(self) -> None:
+        """Subclasses must override this method."""
         raise NotImplementedError("Each job must implement its own execution logic.")
 
     def mark_done(self) -> None:
@@ -73,6 +83,8 @@ class Job:
 
 
 class EmailJob(Job):
+    """Sends an email to a recipient."""
+
     def __init__(self, job_id: int, recipient: str) -> None:
         super().__init__(job_id, f"Send email to {recipient}")
         self.recipient = recipient
@@ -83,6 +95,8 @@ class EmailJob(Job):
 
 
 class DataProcessingJob(Job):
+    """Processes a dataset."""
+
     def __init__(self, job_id: int, dataset: str) -> None:
         super().__init__(job_id, f"Process dataset {dataset}")
         self.dataset = dataset
@@ -93,6 +107,8 @@ class DataProcessingJob(Job):
 
 
 class PriorityJob(Job):
+    """A job with a priority level. Smaller number = higher priority."""
+
     def __init__(self, job_id: int, description: str, priority: int = 5) -> None:
         super().__init__(job_id, description)
         self.priority = priority
@@ -103,4 +119,5 @@ class PriorityJob(Job):
         print(f"[PRIORITY={self.priority}] Running priority job: {self.description}")
 
     def __lt__(self, other) -> bool:
+        """Allow sorting by priority (smaller number = higher priority)."""
         return self.priority < other.priority
