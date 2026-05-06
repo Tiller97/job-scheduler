@@ -14,7 +14,6 @@ from executor import Executor
 
 def build_jobs():
     """建立範例 jobs(模擬從外部 config 讀取資料)"""
-    # 模擬從 API 或資料庫讀進來的 job 設定
     job_configs = [
         {"type": "email",    "job_id": 1, "recipient": "user@example.com"},
         {"type": "data",     "job_id": 2, "dataset": "dataset_A"},
@@ -22,15 +21,17 @@ def build_jobs():
         {"type": "priority", "job_id": 4, "description": "Backup database",           "priority": 8},
         {"type": "priority", "job_id": 5, "description": "Send daily newsletter",     "priority": 5},
     ]
-
-    # 用 Factory 建立 jobs - 我們不用 import 任何具體的 Job class
     jobs = [JobFactory.create(cfg.pop("type"), **cfg) for cfg in job_configs]
+
+    # === Activity 6: 加入一個 RetryableJob,包裝一個容易失敗的 EmailJob ===
+    flaky_email = JobFactory.create("email", job_id=6, recipient="flaky@example.com")
+    retry_job = JobFactory.create("retry", job_id=7, inner_job=flaky_email, max_retries=3)
+    jobs.append(retry_job)
 
     # 把 PriorityJob 排序到前面
     priority_jobs = [j for j in jobs if isinstance(j, PriorityJob)]
     other_jobs = [j for j in jobs if not isinstance(j, PriorityJob)]
     priority_jobs.sort()
-
     return priority_jobs + other_jobs
 
 

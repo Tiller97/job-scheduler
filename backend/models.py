@@ -104,3 +104,49 @@ class PriorityJob(Job):
 
     def __lt__(self, other) -> bool:
         return self.priority < other.priority
+
+
+class RetryableJob(Job):
+    """
+    A job that wraps another job and retries it on failure.
+    Demonstrates resilience patterns common in distributed systems.
+    """
+    def __init__(self, job_id: int, inner_job: Job, max_retries: int = 3) -> None:
+        super().__init__(job_id, f"Retryable wrapper for: {inner_job.description}")
+        self.inner_job = inner_job
+        self.max_retries = max_retries
+        self._attempts = 0
+        self._add_log(f"RetryableJob created (max_retries={max_retries})")
+
+    def execute(self) -> None:
+        """
+        Try inner_job.execute() up to max_retries times.
+        Each attempt has a 50% chance of failing (simulated).
+        Re-raises the last exception if all attempts fail.
+        """
+        import random
+        last_error = None
+
+        for attempt in range(1, self.max_retries + 1):
+            self._attempts = attempt
+            self._add_log(f"Attempt {attempt}/{self.max_retries}")
+            print(f"  [Retry] Job {self.job_id} attempt {attempt}/{self.max_retries}...")
+            try:
+                # Simulate transient failure 50% of the time
+                if random.random() < 0.5:
+                    raise RuntimeError("Simulated transient failure")
+                self.inner_job.execute()
+                self._add_log(f"Succeeded on attempt {attempt}")
+                print(f"  [Retry] Job {self.job_id} succeeded on attempt {attempt} ✓")
+                return
+            except Exception as e:
+                last_error = e
+                self._add_log(f"Attempt {attempt} failed: {e}")
+                print(f"  [Retry] Job {self.job_id} attempt {attempt} failed: {e}")
+
+        # All attempts exhausted - re-raise so executor marks it as failed
+        self._add_log(f"All {self.max_retries} attempts exhausted")
+        raise last_error
+
+    def get_attempts(self) -> int:
+        return self._attempts
