@@ -1,0 +1,46 @@
+name: Python CI
+
+# 什麼時候觸發這個 workflow
+on:
+  push:
+    branches: [ main ]      # 推到 main 時觸發
+  pull_request:
+    branches: [ main ]      # 開 PR 到 main 時也觸發
+
+jobs:
+  test-python:
+    name: Run Python job scheduler
+    runs-on: ubuntu-latest  # 用 Ubuntu Linux 機器跑
+
+    steps:
+      # 1. 把你的 repo 抓到那台機器上
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 安裝 Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. (可選) 升級 pip
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      # 4. 真正的測試:跑 app.py 看會不會壞
+      - name: Run job scheduler
+        working-directory: backend
+        run: python app.py
+
+      # 5. 確認 factory 也正常運作
+      - name: Test JobFactory
+        working-directory: backend
+        run: |
+          python -c "
+          from factory import JobFactory
+          assert 'email' in JobFactory.available_types()
+          assert 'data' in JobFactory.available_types()
+          assert 'priority' in JobFactory.available_types()
+          assert 'retry' in JobFactory.available_types()
+          print('JobFactory test passed ✓')
+          "
