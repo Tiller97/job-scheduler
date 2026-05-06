@@ -1,78 +1,72 @@
 """
 app.py
-Build a few jobs, register them, run them, print a summary.
+Entry point: builds sample jobs, executes them concurrently, and prints
+a status summary, per-job logs, and a timing summary.
 """
-
 
 from models import PriorityJob
 from factory import JobFactory
-
 from task_manager import TaskManager
-
 from executor import Executor
 
 
 def build_jobs():
-    """建立範例 jobs(模擬從外部 config 讀取資料)"""
-    # 模擬從 API 或資料庫讀進來的 job 設定
+    """
+    Build sample jobs from a config-style list. This simulates loading
+    job definitions from an API, database, or YAML config file.
+    """
     job_configs = [
         {"type": "email",    "job_id": 1, "recipient": "user@example.com"},
         {"type": "data",     "job_id": 2, "dataset": "dataset_A"},
         {"type": "priority", "job_id": 3, "description": "Send urgent system alert", "priority": 1},
-        {"type": "priority", "job_id": 4, "description": "Backup database",           "priority": 8},
-        {"type": "priority", "job_id": 5, "description": "Send daily newsletter",     "priority": 5},
+        {"type": "priority", "job_id": 4, "description": "Backup database",          "priority": 8},
+        {"type": "priority", "job_id": 5, "description": "Send daily newsletter",    "priority": 5},
     ]
 
-    # 用 Factory 建立 jobs - 我們不用 import 任何具體的 Job class
+    # Build jobs through the factory; we never import concrete Job classes here.
     jobs = [JobFactory.create(cfg.pop("type"), **cfg) for cfg in job_configs]
 
-    # 把 PriorityJob 排序到前面
+    # Place PriorityJobs in priority order before any non-priority jobs.
     priority_jobs = [j for j in jobs if isinstance(j, PriorityJob)]
     other_jobs = [j for j in jobs if not isinstance(j, PriorityJob)]
     priority_jobs.sort()
-
     return priority_jobs + other_jobs
 
 
 if __name__ == "__main__":
-
     jobs = build_jobs()
 
-
+    # Register all jobs in the manager (all start as 'pending').
     manager = TaskManager()
-
     for job in jobs:
+        manager.add_job(job)
 
-        manager.add_job(job)  # all start as 'pending'
-
-
-    # FIX (app.py): pass 'manager' to Executor so it can update statuses.
-    # Previously Executor(jobs).run() had no manager reference — statuses never changed.
+    # Pass manager into the executor so statuses are kept in sync.
     Executor(jobs, manager).run()
 
-
+    # ----- Status summary -----
     print("\n=== SUMMARY ===")
-
     print(f"Pending:   {len(manager.get_jobs_by_status('pending'))}")
-
     print(f"Completed: {len(manager.get_jobs_by_status('completed'))}")
-
-    # FIX (app.py): added 'failed' count to summary so failures are visible.
     print(f"Failed:    {len(manager.get_jobs_by_status('failed'))}")
 
+    # ----- Per-job logs (Encapsulation: read via get_logs()) -----
     print("\n=== JOB LOGS ===")
     for job in jobs:
         print(f"\n-- Job {job.job_id} ({job.description}) --")
         for log in job.get_logs():
             print(f"  {log}")
-            
+
+    # ----- Timing summary (Lifecycle tracking) -----
     print("\n=== TIMING SUMMARY ===")
     durations = [(j.job_id, j.description, j.get_duration()) for j in jobs]
-    durations.sort(key=lambda x: x[2], reverse=True)  # 從慢到快排序
+    # Sort from slowest to fastest
+    durations.sort(key=lambda x: x[2], reverse=True)
     for job_id, desc, duration in durations:
-        bar = "█" * int(duration * 10)  # 視覺化長條
+        # Visual bar: one block per 0.1 second
+        bar = "█" * int(duration * 10)
         print(f"  Job {job_id}: {duration:.3f}s  {bar} ({desc})")
-    
+
     total = sum(d for _, _, d in durations)
     avg = total / len(durations) if durations else 0
     print(f"\n  Total CPU time:    {total:.3f}s")
